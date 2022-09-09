@@ -1,0 +1,48 @@
+# This sample config.yml shows how to configure a CircleCI workflow to analyze a repository using the CodeQL CLI
+# The example assumes a simple javascript application built using node on Linux
+
+orbs:
+  node: circleci/node@4.5.0
+
+version: 2.1
+jobs:
+  codeql:
+    docker:
+      - image: 'cimg/base:2021.05'
+    resource_class: small
+    steps:
+      - checkout: { path: "demo" }
+      - node/install
+      - run:
+          name: Download CodeQL CLI
+          command: |
+            wget https://github.com/github/codeql-action/releases/latest/download/codeql-linux64.tar.gz -0 codeql-bundle-linux64.tar.gz
+            tar xzvf codeql-bundle-linux64.tar.gz
+            rm codeql-bundle-linux64.tar.gz
+            export PATH=$(pwd)/codeql:$PATH
+      - run:
+          name: Create CodeQL Database
+          command: | 
+            mkdir codeql-dbs
+            ./codeql/codeql database create ./codeql-dbs/repo-db --language=python --source-root=./my-app
+      - run:
+          name: Analyze CodeQL Database
+          command: |
+            cd codeql && mkdir temp
+            ./codeql database analyze ../codeql-dbs/repo-db python-code-scanning.qls --format=sarif-latest --output=./temp/results-py.sarif
+      
+      - when:
+          condition: ${CIRCLE_PULL_REQUEST}
+          steps:
+            - run: 'echo $GITHUB_TOKEN | ./codeql/codeql github upload-results --repository=org/example-app --ref=refs/pull/${CIRCLE_PULL_REQUEST##*/}/head --commit=$CIRCLE_SHA1 --sarif=./codeql/temp/results-py.sarif --github-url=https://github.com/ --github-auth-stdin'
+      - unless:
+          condition: ${CIRCLE_PULL_REQUEST}
+          steps:
+            - run: 'echo $GITHUB_TOKEN | ./codeql/codeql github upload-results --repository=org/example-app --ref=refs/heads/${CIRCLE_BRANCH} --commit=$CIRCLE_SHA1 --sarif=./codeql/temp/results-py.sarif --github-url=https://github.com/ --github-auth-stdin'
+ 
+ workflows:
+  version: 2
+  codeql-analysis:
+    jobs:
+      codeql
+      

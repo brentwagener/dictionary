@@ -2,7 +2,7 @@
 # The example assumes a simple javascript application built using node on Linux
 
 orbs:
-  node: circleci/node@4.5.0
+  node: circleci/python
 
 version: 2.1
 jobs:
